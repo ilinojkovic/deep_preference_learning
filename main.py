@@ -108,12 +108,12 @@ def main():
     ax.set_title('Recall')
 
     ax = f.add_subplot(223)
-    vis.plot_trait(lambda h: h.cost(), ax=ax)
+    vis.plot_trait(lambda h: h.cost, ax=ax)
     ax.set_title('Cost')
 
     ax = f.add_subplot(224)
-    vis.plot_trait(lambda h: h.positives, ax=ax)
-    ax.set_title('Num. Positives')
+    vis.plot_trait(lambda h: h.tp + h.fn, ax=ax)
+    ax.set_title('Sampled Positives')
 
     plt.show()
 

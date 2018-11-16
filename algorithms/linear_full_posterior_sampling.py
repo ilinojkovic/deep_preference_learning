@@ -18,7 +18,7 @@ import numpy as np
 from scipy.stats import invgamma
 
 from core.bandit_algorithm import BanditAlgorithm
-from core.historical_data import HistoricalData
+from core.summary_writer import SummaryWriter
 
 
 class LinearFullPosteriorSampling(BanditAlgorithm):
@@ -39,7 +39,7 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
 
         self.hparams = hparams
         self.data = data
-        self.h_data = HistoricalData(hparams)
+        self.summary = SummaryWriter(hparams)
 
         # Gaussian prior for each beta_i
         self._lambda_prior = self.hparams.lambda_prior
@@ -86,7 +86,7 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
 
         action_i = np.argmax(pred_rs)
         opt_r = self.data.rewards[action_i]
-        self.h_data.add(action_i, pred_rs[action_i], opt_r)
+        self.summary.add(action_i, pred_rs[action_i], opt_r)
 
         return action_i
 

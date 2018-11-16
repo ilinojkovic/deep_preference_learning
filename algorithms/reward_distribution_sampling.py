@@ -1,7 +1,7 @@
 import numpy as np
 
 from core.bandit_algorithm import BanditAlgorithm
-from core.historical_data import HistoricalData
+from core.summary_writer import SummaryWriter
 from algorithms.neural_bandit_model import NeuralBanditModel
 
 
@@ -10,7 +10,7 @@ class RewardDistributionSampling(BanditAlgorithm):
     def __init__(self, hparams, data):
         self.hparams = hparams
         self.data = data
-        self.h_data = HistoricalData(hparams)
+        self.summary = SummaryWriter(hparams)
         self.bnn = NeuralBanditModel(optimizer='RMS', hparams=self.hparams, name=self.hparams.name)
 
         self._sum_cost = 0
@@ -28,7 +28,7 @@ class RewardDistributionSampling(BanditAlgorithm):
             # Pick action randomly according to distribution
             action_i = np.random.choice(self.data.num_actions, p=action_distribution)
             opt_r = self.data.rewards[action_i]
-            self.h_data.add(action_i, pred_rs[action_i], opt_r)
+            self.summary.add(action_i, pred_rs[action_i], opt_r)
 
             return action_i
 
