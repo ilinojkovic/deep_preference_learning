@@ -1,5 +1,9 @@
 """Define class for storing all historical actions, predicted and optimal rewards"""
+import datetime
+import errno
 import numpy as np
+import os
+import pickle
 
 
 class SummaryWriter(object):
@@ -9,6 +13,14 @@ class SummaryWriter(object):
         self._actions = []
         self._pred_rewards = []
         self._opt_rewards = []
+
+    def __getattr__(self, item):
+        _item = '_' + item
+        if _item in self.__dict__:
+            return np.array(getattr(self, _item))
+        else:
+            setattr(self, item, [])
+            return getattr(self, item)
 
     def add(self, action_i, pred_r, opt_r):
         self._actions.append(action_i)
@@ -25,14 +37,10 @@ class SummaryWriter(object):
 
     def _add_attr(self, name, val, cum=False):
         _name = '_' + name
-        if not hasattr(self, _name):
-            setattr(self, _name, [val])
-            setattr(SummaryWriter, name, property(lambda _self: np.array(getattr(_self, _name))))
-        else:
-            arr = getattr(self, _name)
-            if cum:
-                val += arr[-1]
-            arr.append(val)
+        arr = getattr(self, _name)
+        if len(arr) > 0 and cum:
+            val += arr[-1]
+        arr.append(val)
 
     def _add_cost(self):
         cost = abs(self.pred_rewards[-1] - self.opt_rewards[-1])
@@ -68,14 +76,41 @@ class SummaryWriter(object):
             recall = self.tp[-1] / (self.tp[-1] + self.fn[-1])
         self._add_attr('recall', recall)
 
-    @property
-    def actions(self):
-        return np.array(self._actions)
+    @staticmethod
+    def save(instance, path):
+        model_dir = os.path.join(path, instance.hparams.id)
+        instance_path = os.path.join(model_dir, datetime.datetime.now().strftime('%y%m%d%H%M%S%f') + '.pkl')
+        try:
+            os.makedirs(model_dir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise e
+        with open(instance_path, 'wb') as f:
+            # Hack
+            pickle.dump(instance.__dict__, f)
 
-    @property
-    def pred_rewards(self):
-        return np.array(self._pred_rewards)
+    @staticmethod
+    def load(path):
+        """Recursively loads SummaryWriter files from directory"""
+        if os.path.isfile(path):
+            with open(path, 'rb') as f:
+                # Unhack
+                s = SummaryWriter(None)
+                s.__dict__ = pickle.load(f)
+                return s
 
-    @property
-    def opt_rewards(self):
-        return np.array(self._opt_rewards)
+        directory = os.fsencode(path)
+        summaries = []
+        for fod in os.listdir(directory):
+            fod_name = os.fsdecode(fod)
+            fod_path = os.path.join(path, fod_name)
+            summaries.append(SummaryWriter.load(fod_path))
+        return summaries
+
+    @staticmethod
+    def loads(*paths):
+        """Iteratively calls SummaryWriter.load for each path from the argument list"""
+        summaries = []
+        for path in paths:
+            summaries.extend(SummaryWriter.load(path))
+        return summaries

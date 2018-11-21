@@ -24,7 +24,7 @@ class Visualizer(object):
 
     @staticmethod
     def _bootstrap(trait, data_list):
-        """Return combined information about the list of HistoricalData objects for certain trait"""
+        """Return mean and 95% confidence interval for certain trait of the list of HistoricalData objects"""
         stacked = np.stack([trait(h_data) for h_data in data_list])
         mean = np.mean(stacked, axis=0)
         sem = st.sem(stacked, axis=0)

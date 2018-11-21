@@ -30,10 +30,19 @@ class NeuralBanditModel(object):
         layer_n = getattr(self.hparams, "layer_norm", False)
         dropout = getattr(self.hparams, "use_dropout", False)
 
+        if self.hparams.activation.lower() == 'sigmoid':
+            activation = tf.nn.sigmoid
+        elif self.hparams.activation.lower() == 'tanh':
+            activation = tf.nn.tanh
+        elif self.hparams.activation.lower() == 'none':
+            activation = None
+        else:
+            activation = tf.nn.relu
+
         nn = tf.contrib.layers.fully_connected(
             x,
             num_units,
-            activation_fn=self.hparams.activation,
+            activation_fn=activation,
             normalizer_fn=None if not layer_n else tf.contrib.layers.layer_norm,
             normalizer_params={},
             weights_initializer=tf.random_uniform_initializer(-init_s, init_s)

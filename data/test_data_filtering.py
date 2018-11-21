@@ -29,9 +29,9 @@ def main():
 
         _, rewards = retrieve_synthetic_data(data=data,
                                              fst_type_filter=True,
-                                             fst_latlng_param=0.7,
+                                             fst_latlng_param=0.5,
                                              snd_type_filter=True,
-                                             snd_latlng_param=0.7,
+                                             snd_latlng_param=1,
                                              snd_utility_filter=True,
                                              snd_feature_param=0.5,
                                              snd_category_filter=True,

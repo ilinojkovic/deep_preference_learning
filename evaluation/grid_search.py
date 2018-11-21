@@ -1,3 +1,5 @@
+import hashlib
+import json
 import tensorflow as tf
 
 
@@ -19,6 +21,7 @@ def _grid_hparams_req(current_params, specification):
     :return: Yields a new tf.contrib.training.HParams object
     """
     if not specification:
+        current_params['id'] = hashlib.md5(json.dumps(current_params, sort_keys=True).encode('utf-8')).hexdigest()
         yield tf.contrib.training.HParams(**current_params)
     else:
         specification = specification.copy()
