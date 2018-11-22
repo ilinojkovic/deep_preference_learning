@@ -27,7 +27,7 @@ def main():
     # Load command input options
     options, remainder = create_parser().parse_args()
 
-    num_users_to_run = 5
+    num_users_to_run = 100
     log_path = LOG_PATH + datetime.datetime.now().strftime('%y%m%d%H%M%S%f')
 
     algos = []
@@ -47,7 +47,7 @@ def main():
         'positive_start': 0,
         'a0': 6,
         'b0': 6,
-        'lambda_prior': 0.25
+        'lambda_prior': [0.25, 0.1, 0.5]
     }
     algos.append((LinearFullPosteriorSampling, hparams_linear_grid))
 
@@ -57,7 +57,7 @@ def main():
         'actions_dim': 98,
         'init_scale': 0.3,
         'activation': 'relu',
-        'layer_sizes': [False],
+        'layer_sizes': [False, [50], [50, 50]],
         'batch_size': 1,
         'activate_decay': True,
         'initial_lr': 0.1,

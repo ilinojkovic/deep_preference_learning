@@ -14,19 +14,19 @@ def main():
     f = plt.figure()
 
     ax = f.add_subplot(221)
-    vis.plot_trait(lambda s: s.precision, ax=ax)
+    vis.plot_metric(lambda s: s.precision, ax=ax, print_params=True)
     ax.set_title('Precision')
 
     ax = f.add_subplot(222)
-    vis.plot_trait(lambda s: s.recall, ax=ax)
+    vis.plot_metric(lambda s: s.recall, ax=ax)
     ax.set_title('Recall')
 
     ax = f.add_subplot(223)
-    vis.plot_trait(lambda s: s.cost, ax=ax)
+    vis.plot_metric(lambda s: s.cost, ax=ax)
     ax.set_title('Cost')
 
     ax = f.add_subplot(224)
-    vis.plot_trait(lambda s: s.tp + s.fn, ax=ax)
+    vis.plot_metric(lambda s: s.tp + s.fn, ax=ax)
     ax.set_title('Sampled Positives')
 
     plt.show()

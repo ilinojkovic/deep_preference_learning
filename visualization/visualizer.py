@@ -1,8 +1,6 @@
 import matplotlib.pyplot as plt
-import numpy as np
-import scipy.stats as st
 
-from visualization.plot_utils import plot_mean_and_std
+from core.utils import plot_mean_and_ci, get_mean_and_ci
 
 
 class Visualizer(object):
@@ -22,16 +20,7 @@ class Visualizer(object):
                        'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
         self.curr_color = 0
 
-    @staticmethod
-    def _bootstrap(trait, data_list):
-        """Return mean and 95% confidence interval for certain trait of the list of HistoricalData objects"""
-        stacked = np.stack([trait(h_data) for h_data in data_list])
-        mean = np.mean(stacked, axis=0)
-        sem = st.sem(stacked, axis=0)
-        lcb, ucb = st.t.interval(0.95, np.ones(stacked.shape[1]) * (stacked.shape[0] - 1), loc=mean, scale=sem)
-        return mean, lcb, ucb
-
-    def plot_trait(self, trait, ax=None):
+    def plot_metric(self, metric, ax=None, print_params=False):
         if ax is None:
             f = plt.figure()
             ax = f.add_subplot(111)
@@ -41,13 +30,18 @@ class Visualizer(object):
         for model_data in self.data:
             if len(model_data) == 0:
                 continue
-            mean, lcb, ucb = Visualizer._bootstrap(trait, model_data)
-            line = plot_mean_and_std(mean, lcb, ucb, ax,
-                                     color_mean=self.colors[self.curr_color],
-                                     color_shading=self.colors[self.curr_color])
+            mean, lcb, ucb = get_mean_and_ci(metric, model_data)
+            line = plot_mean_and_ci(mean, lcb, ucb, ax,
+                                    color_mean=self.colors[self.curr_color],
+                                    color_shading=self.colors[self.curr_color])
             self.curr_color = (self.curr_color + 1) % len(self.colors)
             model_lines.append(line)
-            model_names.append(model_data[0].hparams.name)
+            model_names.append(model_data[0].hparams.name[:3] + '_' + model_data[0].hparams.id)
+
+            if print_params:
+                for param_key, param_value in model_data[0].hparams.values().items():
+                    print('\t', param_key, '=', param_value)
+                print()
 
         ax.legend(model_lines, model_names)
 
