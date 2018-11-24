@@ -65,14 +65,13 @@ class NeuralBanditModel(object):
                     if num_units > 0:
                         nn = self.build_layer(nn, num_units)
 
-            nn = tf.layers.dense(
+            y_pred = tf.layers.dense(
                 inputs=nn,
                 units=1,
-                # activation=tf.nn.sigmoid,
+                activation=tf.nn.sigmoid,
                 kernel_initializer=tf.random_uniform_initializer(-init_s, init_s))
 
-            y_pred = self.hparams.positive_reward * tf.nn.sigmoid(nn)
-            # y_pred += tf.reduce_min(y_pred)
+            y_pred = self.hparams.positive_reward * y_pred
 
         return nn, y_pred
 
@@ -135,9 +134,9 @@ class NeuralBanditModel(object):
                         zip(grads, tvars), global_step=self.global_step)
 
                 # create tensorboard metrics
-                # self.create_summaries()
-                # self.summary_writer = tf.summary.FileWriter(
-                #     "{}/graph_{}".format(FLAGS.logdir, self.name), self.sess.graph)
+                self.create_summaries()
+                self.summary_writer = tf.summary.FileWriter(
+                    "{}/graph_{}".format(FLAGS.logdir, self.name), self.sess.graph)
 
                 self.init = tf.global_variables_initializer()
 
@@ -172,13 +171,40 @@ class NeuralBanditModel(object):
         """Selects optimizer. To be extended (SGLD, KFAC, etc)."""
         return tf.train.RMSPropOptimizer(self.lr)
 
-    # def create_summaries(self):
-    #     """Defines summaries including mean loss, learning rate, and global step."""
-    #
-    #     with self.graph.as_default():
-    #         with tf.name_scope(self.name + "_summaries"):
-    #             tf.summary.scalar("cost", self.cost)
-    #             tf.summary.scalar("mean_cost", self.mean_cost)
-    #             tf.summary.scalar("lr", self.lr)
-    #             tf.summary.scalar("global_step", self.global_step)
-    #             self.summary_op = tf.summary.merge_all()
+    def create_summaries(self):
+        """Defines summaries including mean loss, learning rate, and global step."""
+
+        with self.graph.as_default():
+            with tf.name_scope(self.name + "_summaries"):
+                tf.summary.scalar("cost", self.cost)
+                tf.summary.scalar("mean_cost", self.mean_cost)
+                tf.summary.scalar("lr", self.lr)
+                tf.summary.scalar("global_step", self.global_step)
+                self.summary_op = tf.summary.merge_all()
+
+    def train(self, data, num_steps):
+        """Trains the network for num_steps, using the provided data.
+
+        Args:
+          data: SummaryData object that provides the data.
+          num_steps: Number of minibatches to train the network for.
+        """
+
+        if self.hparams.show_training:
+            print("Training {} for {} steps...".format(self.name, num_steps))
+
+        with self.graph.as_default():
+
+            for step in range(num_steps):
+                x, y = data.get_batch(self.hparams.batch_size)
+                _, cost, summary, lr = self.sess.run(
+                    [self.train_op, self.cost, self.summary_op, self.lr],
+                    feed_dict={self.x: x, self.y: y})
+
+                if (step + 1) % self.hparams.freq_summary == 0:
+                    if self.hparams.show_training:
+                        print("{} | NN | step: {}, lr: {}, loss: {}".format(
+                            self.name, step, lr, cost))
+                    self.summary_writer.add_summary(summary, step)
+
+            self.times_trained += 1

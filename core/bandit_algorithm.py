@@ -26,5 +26,5 @@ class BanditAlgorithm(object):
     def action(self):
         pass
 
-    def update(self, action_i):
+    def update(self, action_i, action, pred_r, opt_r):
         pass

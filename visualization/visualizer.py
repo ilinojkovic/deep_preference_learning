@@ -20,13 +20,14 @@ class Visualizer(object):
                        'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
         self.curr_color = 0
 
-    def plot_metric(self, metric, ax=None, print_params=False):
+    def plot_metric(self, metric, ax=None, name=None, print_params=False):
         if ax is None:
             f = plt.figure()
             ax = f.add_subplot(111)
 
         model_lines = []
         model_names = []
+        self.curr_color = 0
         for model_data in self.data:
             if len(model_data) == 0:
                 continue
@@ -43,7 +44,10 @@ class Visualizer(object):
                     print('\t', param_key, '=', param_value)
                 print()
 
-        ax.legend(model_lines, model_names)
+        ax.legend(model_lines, model_names, loc='center left', bbox_to_anchor=(1, 0.5))
+
+        if name is not None:
+            ax.set_title(name)
 
         if ax is None:
-            plt.show()
+            plt.show(block=False)

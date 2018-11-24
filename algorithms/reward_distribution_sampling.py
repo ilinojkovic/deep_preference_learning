@@ -1,7 +1,7 @@
 import numpy as np
 
 from core.bandit_algorithm import BanditAlgorithm
-from core.summary_writer import SummaryWriter
+from core.historical_dataset import HistoricalDataset
 from algorithms.neural_bandit_model import NeuralBanditModel
 
 
@@ -10,12 +10,15 @@ class RewardDistributionSampling(BanditAlgorithm):
     def __init__(self, hparams, data):
         self.hparams = hparams
         self.data = data
-        self.summary = SummaryWriter(hparams)
-        self.bnn = NeuralBanditModel(optimizer='RMS', hparams=self.hparams, name=self.hparams.name)
 
-        self._sum_cost = 0
-        self._positive_samples = 0
-        self._num_samples = 0
+        self.update_freq_nn = hparams.training_freq_network
+
+        self.t = 0
+
+        self.num_epochs = hparams.training_epochs
+
+        self.h_data = HistoricalDataset()
+        self.bnn = NeuralBanditModel(optimizer='RMS', hparams=self.hparams, name=self.hparams.name)
 
     def action(self):
         with self.bnn.graph.as_default():
@@ -27,15 +30,15 @@ class RewardDistributionSampling(BanditAlgorithm):
 
             # Pick action randomly according to distribution
             action_i = np.random.choice(self.data.num_actions, p=action_distribution)
-            opt_r = self.data.rewards[action_i]
-            self.summary.add(action_i, pred_rs[action_i], opt_r)
+            return action_i, self.data.actions[action_i], pred_rs[action_i], self.data.rewards[action_i]
 
-            return action_i
+    def update(self, action_i, action, pred_r, opt_r):
+        self.t += 1
+        self.h_data.add(action_i, action, pred_r, opt_r)
 
-    def update(self, action_i):
-        with self.bnn.graph.as_default():
-            # Play action, get regret and perform an update step of representation
-            action, opt_r = self.data.get_row(action_i)
-            self.bnn.sess.run(self.bnn.train_op,
-                              feed_dict={self.bnn.x: action.reshape((1, -1)),
-                                         self.bnn.y: opt_r.reshape((1, -1))})
+        # Retrain the network on the original data (h_data)
+        if self.t % self.update_freq_nn == 0:
+
+            if self.hparams.reset_lr:
+                self.bnn.assign_lr()
+            self.bnn.train(self.h_data, self.num_epochs)

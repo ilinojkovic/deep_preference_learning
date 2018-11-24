@@ -18,7 +18,7 @@ import numpy as np
 from scipy.stats import invgamma
 
 from core.bandit_algorithm import BanditAlgorithm
-from core.summary_writer import SummaryWriter
+from core.historical_dataset import HistoricalDataset
 
 
 class LinearFullPosteriorSampling(BanditAlgorithm):
@@ -39,7 +39,6 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
 
         self.hparams = hparams
         self.data = data
-        self.summary = SummaryWriter(hparams)
 
         # Gaussian prior for each beta_i
         self._lambda_prior = self.hparams.lambda_prior
@@ -58,6 +57,7 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
         self.b = self._b0
 
         self.t = 0
+        self.h_data = HistoricalDataset(intercept=True)
 
     def action(self):
         """Samples beta's from posterior, and chooses best action accordingly.
@@ -75,7 +75,7 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
             # Sampling could fail if covariance is not positive definite
             print('Exception when sampling from {}.'.format(self.hparams.name))
             print('Details: {} | {}.'.format(str(e), e.args))
-            d = self.hparams.num_steps + 1
+            d = self.hparams.actions_dim + 1
             beta_s = np.random.multivariate_normal(np.zeros(d), np.eye(d))
 
         # Compute sampled expected rewards, intercept is last component of beta
@@ -85,12 +85,9 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
         ]
 
         action_i = np.argmax(pred_rs)
-        opt_r = self.data.rewards[action_i]
-        self.summary.add(action_i, pred_rs[action_i], opt_r)
+        return action_i, self.data.actions[action_i], pred_rs[action_i], self.data.rewards[action_i]
 
-        return action_i
-
-    def update(self, action_i):
+    def update(self, action_i, action, pred_r, opt_r):
         """Updates action posterior using the linear Bayesian regression formula.
 
         Args:
@@ -98,10 +95,11 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
         """
 
         self.t += 1
+        self.h_data.add(action_i, action, pred_r, opt_r)
 
         # Update posterior of action with formulas: \beta | x,y ~ N(mu_q, cov_q)
-        x = np.hstack((self.data.actions, np.ones(shape=(self.data.num_actions, 1))))
-        y = self.data.rewards
+        x = self.h_data.actions
+        y = self.h_data.opt_rewards
 
         # The algorithm could be improved with sequential update formulas (cheaper)
         s = np.dot(x.T, x)
