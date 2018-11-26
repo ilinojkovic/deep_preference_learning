@@ -3,7 +3,8 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from data.synthetic_data_sampler import preprocess, retrieve_synthetic_data
+from data.synthetic_data_sampler import retrieve_synthetic_data
+from data.preprocessing import preprocess
 
 
 def create_parser():

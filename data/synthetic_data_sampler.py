@@ -1,21 +1,7 @@
 import pandas as pd
 import numpy as np
 
-
-def preprocess(df, errors='coerce'):
-    data = []
-    for key in df:
-        nd_column = pd.to_numeric(df[key], errors=errors)
-        if nd_column.count() > 0:
-            data.append(nd_column)
-    preprocessed_df = pd.concat(data, axis=1, keys=[s.name for s in data])
-    preprocessed_df = preprocessed_df.fillna(0)
-
-    col_reg = ['attach', 'price', 'category', 'feature', 'value', 'utility', 'lat', 'lng', 'type']
-    cols = [c for c in preprocessed_df.columns if any([reg in c.lower() for reg in col_reg])]
-    preprocessed_df = preprocessed_df[cols]
-
-    return preprocessed_df
+from data.preprocessing import preprocess
 
 
 def get_type_index(columns):

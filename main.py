@@ -1,14 +1,17 @@
 from absl import app
 from absl import flags
 import datetime
+import numpy as np
 from optparse import OptionParser
 import pandas as pd
+from sklearn.decomposition import PCA
 
 from algorithms.linear_full_posterior_sampling import LinearFullPosteriorSampling
 from algorithms.neural_linear_sampling import NeuralLinearPosteriorSampling
 from algorithms.reward_distribution_sampling import RewardDistributionSampling
 from core.bandit_dataset import BanditDataset
-from data.synthetic_data_sampler import retrieve_synthetic_data, preprocess
+from data.synthetic_data_sampler import retrieve_synthetic_data
+from data.preprocessing import preprocess, remove_outlier_vals
 from evaluation.grid_search import grid_hparams
 from evaluation.summary import Summary
 
@@ -55,6 +58,10 @@ def run_configuration(algorithm, hparams, data):
             pred_r = opt_r = sampling.data.rewards[step]
         sampling.update(action_i, action, pred_r, opt_r)
 
+        if FLAGS.verbose and (step + 1) % FLAGS.checkpoint_freq == 0:
+            print('Action:', action_i, ';\tPred reward:', pred_r, ';\tOpt reward:', opt_r)
+            print()
+
     return sampling.h_data
 
 
@@ -62,7 +69,7 @@ def main(_):
     # Load command input options
     options, remainder = create_parser().parse_args()
 
-    num_users_to_run = 200
+    num_users_to_run = 100
     log_path = LOG_PATH + datetime.datetime.now().strftime('%y%m%d%H%M%S%f')
 
     algos = []
@@ -77,7 +84,8 @@ def main(_):
         'positive_start': 0,
         'a0': 6,
         'b0': 6,
-        'lambda_prior': 0.1
+        'lambda_prior': 0.1,
+        'pca': [True, False],
     }
     algos.append((LinearFullPosteriorSampling, hparams_linear_grid))
 
@@ -101,8 +109,9 @@ def main(_):
         'positive_reward': 10,
         'negative_reward': -1,
         'positive_start': 0,
+        'pca': [True],
     }
-    algos.append((RewardDistributionSampling, hparams_reward_dist_grid))
+    # algos.append((RewardDistributionSampling, hparams_reward_dist_grid))
 
     hparams_neural_lin_grid = {
         'name': 'NeuralLinear',
@@ -117,7 +126,7 @@ def main(_):
         'initial_lr': 0.1,
         'max_grad_norm': 5.0,
         'training_freq': 1,
-        'training_freq_network': [1, 10],
+        'training_freq_network': [10],
         'training_epochs': 50,
         'show_training': True,
         'freq_summary': 25,
@@ -127,26 +136,58 @@ def main(_):
         'positive_start': 0,
         'a0': 6,
         'b0': 6,
-        'lambda_prior': 0.1
+        'lambda_prior': 0.1,
+        'pca': [True, False],
     }
     algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_grid))
 
-    raw_data = preprocess(pd.read_pickle(options.input))
+    raw_data = pd.read_pickle(options.input)
+    raw_data = preprocess(raw_data)
+    raw_data = remove_outlier_vals(raw_data)
 
     for i in range(num_users_to_run):
-        actions, rewards = retrieve_synthetic_data(data=raw_data)
+        actions, rewards = retrieve_synthetic_data(data=raw_data,
+                                                   input_path=None,
+                                                   fst_type_filter=True,
+                                                   fst_latlng_param=0.5,
+                                                   fst_utility_filter=None,
+                                                   fst_feature_param=None,
+                                                   fst_category_filter=None,
+                                                   fst_price_param=None,
+                                                   fst_area_param=None,
+                                                   snd_type_filter=True,
+                                                   snd_latlng_param=1,
+                                                   snd_utility_filter=True,
+                                                   snd_feature_param=0.5,
+                                                   snd_category_filter=True,
+                                                   snd_price_param=0.6,
+                                                   snd_area_param=0.7,
+                                                   max_selected=6000,
+                                                   min_positive=10,
+                                                   max_positive=1000,
+                                                   verbose=False)
 
-        data = BanditDataset(actions, rewards, hparams_linear_grid['positive_start'])
+        data = BanditDataset(actions, rewards)
+
+        pca = PCA(1 - 1e-7, whiten=True)
+        pca_actions = pca.fit_transform(data.actions)
+
+        pca_data = BanditDataset(pca_actions, rewards)
 
         if FLAGS.verbose:
             print('==> User {} generated <=='.format(str(i).zfill(2)))
-            print('No. selected actions:', data.num_actions)
+            print('Actions shape:', data.actions.shape)
+            print('PCA actions shape:', pca_data.actions.shape)
             print('Positive examples:', len(data.positive_actions))
             print()
 
         for algo, hparams_grid in algos:
             for hparams in grid_hparams(hparams_grid):
-                h_data = run_configuration(algo, hparams, data)
+                run_data = pca_data if hparams.pca else data
+
+                hparams.set_hparam('actions_dim', run_data.actions_dim)
+
+                h_data = run_configuration(algo, hparams, run_data)
                 Summary(hparams, h_data).save(log_path)
 
         if FLAGS.verbose:

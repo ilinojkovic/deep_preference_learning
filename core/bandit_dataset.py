@@ -4,7 +4,7 @@ import numpy as np
 
 class BanditDataset(object):
 
-    def __init__(self, actions, rewards, positive_start):
+    def __init__(self, actions, rewards, positive_start=0):
         """Creates BanditDataset object.
 
         Data is stored in attributes: actions and rewards
@@ -58,6 +58,10 @@ class BanditDataset(object):
     @property
     def actions(self):
         return self._actions[self._order]
+
+    @actions.setter
+    def actions(self, value):
+        self._actions = value
 
     @property
     def rewards(self):
