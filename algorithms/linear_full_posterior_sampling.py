@@ -14,6 +14,7 @@
 # ==============================================================================
 
 """Contextual algorithm that keeps a full linear posterior for each arm."""
+from copy import deepcopy
 import numpy as np
 from scipy.stats import invgamma
 
@@ -38,7 +39,7 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
         """
 
         self.hparams = hparams
-        self.data = data
+        self.data = deepcopy(data)
 
         # Gaussian prior for each beta_i
         self._lambda_prior = self.hparams.lambda_prior
@@ -65,6 +66,10 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
         Returns:
           action: Selected action for the context.
         """
+
+        if len(self.data.positive_actions) == 0:
+            # Return fake positive action if run out of positives
+            return -1, np.zeros(self.data.actions_dim), self.data.positive_reward, self.data.positive_reward
 
         # Sample sigma2, and beta conditional on sigma2
         sigma2_s = self.b * invgamma.rvs(self.a)
@@ -96,6 +101,12 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
 
         self.t += 1
         self.h_data.add(action_i, action, pred_r, opt_r)
+
+        if action_i == -1:
+            # No updates on fake action
+            return
+
+        self.data.remove(action_i)
 
         # Update posterior of action with formulas: \beta | x,y ~ N(mu_q, cov_q)
         x = self.h_data.actions

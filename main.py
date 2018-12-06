@@ -60,6 +60,11 @@ def run_configuration(algorithm, hparams, data):
 
         if FLAGS.verbose and (step + 1) % FLAGS.checkpoint_freq == 0:
             print('Action:', action_i, ';\tPred reward:', pred_r, ';\tOpt reward:', opt_r)
+            print('Actions left: {};\tPositives sampled: {};\tPositives left: {}'.format(
+                sampling.data.num_actions,
+                len(np.where(sampling.h_data.opt_rewards == sampling.data.positive_reward)[0]),
+                len(sampling.data.positive_actions)
+            ))
             print()
 
     return sampling.h_data
@@ -69,7 +74,7 @@ def main(_):
     # Load command input options
     options, remainder = create_parser().parse_args()
 
-    num_users_to_run = 100
+    num_users_to_run = 10
     log_path = LOG_PATH + datetime.datetime.now().strftime('%y%m%d%H%M%S%f')
 
     algos = []
@@ -85,7 +90,7 @@ def main(_):
         'a0': 6,
         'b0': 6,
         'lambda_prior': 0.1,
-        'pca': [True, False],
+        'pca': [True],
     }
     algos.append((LinearFullPosteriorSampling, hparams_linear_grid))
 
@@ -101,7 +106,7 @@ def main(_):
         'activate_decay': True,
         'initial_lr': 0.1,
         'max_grad_norm': 5.0,
-        'training_freq_network': 1,
+        'training_freq_network': [1, 10],
         'training_epochs': 40,
         'show_training': True,
         'freq_summary': 20,
@@ -109,7 +114,7 @@ def main(_):
         'positive_reward': 10,
         'negative_reward': -1,
         'positive_start': 0,
-        'pca': [True],
+        'pca': [True, False],
     }
     # algos.append((RewardDistributionSampling, hparams_reward_dist_grid))
 
@@ -137,7 +142,7 @@ def main(_):
         'a0': 6,
         'b0': 6,
         'lambda_prior': 0.1,
-        'pca': [True, False],
+        'pca': [True],
     }
     algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_grid))
 

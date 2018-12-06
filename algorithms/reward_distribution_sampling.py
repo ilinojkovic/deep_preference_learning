@@ -1,3 +1,4 @@
+from copy import deepcopy
 import numpy as np
 
 from core.bandit_algorithm import BanditAlgorithm
@@ -9,7 +10,7 @@ class RewardDistributionSampling(BanditAlgorithm):
 
     def __init__(self, hparams, data):
         self.hparams = hparams
-        self.data = data
+        self.data = deepcopy(data)
 
         self.update_freq_nn = hparams.training_freq_network
 
@@ -21,6 +22,11 @@ class RewardDistributionSampling(BanditAlgorithm):
         self.bnn = NeuralBanditModel(optimizer='RMS', hparams=self.hparams, name=self.hparams.name)
 
     def action(self):
+
+        if len(self.data.positive_actions) == 0:
+            # Return fake positive action if run out of positives
+            return -1, np.zeros(self.data.actions_dim), self.data.positive_reward, self.data.positive_reward
+
         with self.bnn.graph.as_default():
             # Retrieve distribution over actions
             action_distribution, pred_rs = self.bnn.sess.run([self.bnn.distribution, self.bnn.y_pred],
@@ -35,6 +41,12 @@ class RewardDistributionSampling(BanditAlgorithm):
     def update(self, action_i, action, pred_r, opt_r):
         self.t += 1
         self.h_data.add(action_i, action, pred_r, opt_r)
+
+        if action_i == -1:
+            # No updates on fake action
+            return
+
+        self.data.remove(action_i)
 
         # Retrain the network on the original data (h_data)
         if self.t % self.update_freq_nn == 0:

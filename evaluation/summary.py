@@ -40,6 +40,11 @@ class Summary(object):
 
         self.unique = np.array([len(np.unique(h_data.action_indices[:i + 1])) for i in range(h_data.n)])
 
+        self.unique_positive = np.array([
+            len(np.unique(h_data.action_indices[:i + 1][h_data.opt_rewards[:i + 1] == hparams.positive_reward]))
+            for i in range(h_data.n)
+        ])
+
     def save(self, path):
         model_path = os.path.join(path, self.hparams.name[:3] + '_' + self.hparams.id)
         summary_path = os.path.join(model_path, datetime.datetime.now().strftime('%y%m%d%H%M%S%f') + '.pkl')

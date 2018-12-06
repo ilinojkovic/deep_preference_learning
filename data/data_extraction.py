@@ -89,6 +89,8 @@ class XML2DataFrame:
                     else:
                         raise ValueError(
                             'duplicate value {0}. Currently parsed {1}'.format(child.attrib['key'], parsed))
+                elif child.tag == 'organization':
+                    parsed['{}-{}-id'.format(parent_tag, child.tag)] = child.attrib['id']
                 elif child.tag not in parsed:
                     if parent_tag is not None:
                         parsed_key = '{}-{}'.format(parent_tag, child.tag)

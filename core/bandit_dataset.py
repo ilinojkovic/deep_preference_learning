@@ -47,6 +47,15 @@ class BanditDataset(object):
         """Returns (action, reward) tuple for specified index"""
         return self.actions[index], self.rewards[index]
 
+    def remove(self, index):
+        """Removes action and reward in specified location"""
+        underlying_index = self._order[index]
+        self._actions = np.delete(self._actions, underlying_index, axis=0)
+        self._rewards = np.delete(self._rewards, underlying_index)
+
+        self._order = np.delete(self._order, index)
+        self._order[self._order > underlying_index] -= 1
+
     @property
     def actions_dim(self):
         return self._actions.shape[1]

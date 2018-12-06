@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from data.synthetic_data_sampler import get_indices_list
-
 
 def preprocess(df, errors='coerce'):
     data = []
@@ -22,7 +20,7 @@ def preprocess(df, errors='coerce'):
 
 def remove_outlier_vals(df, m=10):
     data = df.values
-    val_ind = get_indices_list(df.columns, 'value')
+    val_ind = np.where(['value' in column.lower() for column in df.columns])[0]
 
     vals = data[:, val_ind]
     mvals = np.ma.masked_array(vals, mask=(vals == 0))

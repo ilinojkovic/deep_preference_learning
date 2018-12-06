@@ -19,6 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from copy import deepcopy
 import numpy as np
 from scipy.stats import invgamma
 
@@ -38,7 +39,7 @@ class NeuralLinearPosteriorSampling(BanditAlgorithm):
         """
         self.hparams = hparams
         self.latent_dim = self.hparams.layer_sizes[-1]
-        self.data = data
+        self.data = deepcopy(data)
 
         # Gaussian prior for each beta_i
         self._lambda_prior = self.hparams.lambda_prior
@@ -69,6 +70,11 @@ class NeuralLinearPosteriorSampling(BanditAlgorithm):
 
     def action(self):
         """Samples beta's from posterior, and chooses best action accordingly."""
+
+        if len(self.data.positive_actions) == 0:
+            # Return fake positive action if run out of positives
+            return -1, np.zeros(self.data.actions_dim), self.data.positive_reward, self.data.positive_reward
+
         # Sample sigma2, and beta conditional on sigma2
         sigma2_s = self.b * invgamma.rvs(self.a)
 
@@ -96,8 +102,14 @@ class NeuralLinearPosteriorSampling(BanditAlgorithm):
 
         self.t += 1
         self.h_data.add(action_i, action, pred_r, opt_r)
+
+        if action_i == -1:
+            # No updates on fake action
+            return
+
         z_action = self.bnn.sess.run(self.bnn.nn, feed_dict={self.bnn.x: self.data.actions[action_i].reshape((1, -1))})
         self.h_latent.add(action_i, z_action, pred_r, opt_r)
+        self.data.remove(action_i)
 
         # Retrain the network on the original data (data_h)
         if self.t % self.update_freq_nn == 0:

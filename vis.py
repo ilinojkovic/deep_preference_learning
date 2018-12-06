@@ -22,7 +22,9 @@ def main():
     ax = f.add_subplot(234)
     vis.plot_metric(lambda s: s.recall, name='Recall', ax=ax, legend=False)
     ax = f.add_subplot(235)
-    vis.plot_metric(lambda s: s.unique, name='Number of unique actions', ax=ax, legend=True)
+    vis.plot_metric(lambda s: s.unique, name='Number of unique actions', ax=ax, legend=False)
+    ax = f.add_subplot(236)
+    vis.plot_metric(lambda s: s.unique_positive, name='Number of unique positive actions', ax=ax, legend=True)
 
     plt.show()
 
