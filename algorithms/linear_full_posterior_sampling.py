@@ -106,7 +106,8 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
             # No updates on fake action
             return
 
-        self.data.remove(action_i)
+        if self.hparams.remove_actions:
+            self.data.remove(action_i)
 
         # Update posterior of action with formulas: \beta | x,y ~ N(mu_q, cov_q)
         x = self.h_data.actions

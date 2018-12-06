@@ -109,7 +109,9 @@ class NeuralLinearPosteriorSampling(BanditAlgorithm):
 
         z_action = self.bnn.sess.run(self.bnn.nn, feed_dict={self.bnn.x: self.data.actions[action_i].reshape((1, -1))})
         self.h_latent.add(action_i, z_action, pred_r, opt_r)
-        self.data.remove(action_i)
+
+        if self.hparams.remove_actions:
+            self.data.remove(action_i)
 
         # Retrain the network on the original data (data_h)
         if self.t % self.update_freq_nn == 0:

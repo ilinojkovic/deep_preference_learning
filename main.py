@@ -91,6 +91,7 @@ def main(_):
         'b0': 6,
         'lambda_prior': 0.1,
         'pca': [True],
+        'remove_actions': True,
     }
     algos.append((LinearFullPosteriorSampling, hparams_linear_grid))
 
@@ -115,6 +116,7 @@ def main(_):
         'negative_reward': -1,
         'positive_start': 0,
         'pca': [True, False],
+        'remove_actions': True,
     }
     # algos.append((RewardDistributionSampling, hparams_reward_dist_grid))
 
@@ -143,6 +145,7 @@ def main(_):
         'b0': 6,
         'lambda_prior': 0.1,
         'pca': [True],
+        'remove_actions': True,
     }
     algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_grid))
 

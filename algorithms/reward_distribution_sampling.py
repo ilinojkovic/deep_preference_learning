@@ -46,7 +46,8 @@ class RewardDistributionSampling(BanditAlgorithm):
             # No updates on fake action
             return
 
-        self.data.remove(action_i)
+        if self.hparams.remove_actions:
+            self.data.remove(action_i)
 
         # Retrain the network on the original data (h_data)
         if self.t % self.update_freq_nn == 0:
