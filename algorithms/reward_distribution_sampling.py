@@ -1,16 +1,13 @@
-from copy import deepcopy
 import numpy as np
 
 from core.bandit_algorithm import BanditAlgorithm
-from core.historical_dataset import HistoricalDataset
 from algorithms.neural_bandit_model import NeuralBanditModel
 
 
 class RewardDistributionSampling(BanditAlgorithm):
 
     def __init__(self, hparams, data):
-        self.hparams = hparams
-        self.data = deepcopy(data)
+        super().__init__(hparams, data)
 
         self.update_freq_nn = hparams.training_freq_network
 
@@ -18,7 +15,6 @@ class RewardDistributionSampling(BanditAlgorithm):
 
         self.num_epochs = hparams.training_epochs
 
-        self.h_data = HistoricalDataset()
         self.bnn = NeuralBanditModel(optimizer='RMS', hparams=self.hparams, name=self.hparams.name)
 
     def action(self):

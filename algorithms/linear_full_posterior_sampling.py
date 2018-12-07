@@ -14,12 +14,10 @@
 # ==============================================================================
 
 """Contextual algorithm that keeps a full linear posterior for each arm."""
-from copy import deepcopy
 import numpy as np
 from scipy.stats import invgamma
 
 from core.bandit_algorithm import BanditAlgorithm
-from core.historical_dataset import HistoricalDataset
 
 
 class LinearFullPosteriorSampling(BanditAlgorithm):
@@ -37,28 +35,22 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
           hparams: Hyper-parameters of the algorithm.
           data: BanditDataset object containing all the actions and rewards
         """
-
-        self.hparams = hparams
-        self.data = deepcopy(data)
+        super().__init__(hparams, data)
 
         # Gaussian prior for each beta_i
         self._lambda_prior = self.hparams.lambda_prior
 
         self.mu = np.zeros(self.hparams.actions_dim + 1)
-
-        self.cov = (1.0 / self.lambda_prior) * np.eye(self.hparams.actions_dim + 1)
-
         self.precision = self.lambda_prior * np.eye(self.hparams.actions_dim + 1)
 
         # Inverse Gamma prior for each sigma2_i
         self._a0 = self.hparams.a0
         self._b0 = self.hparams.b0
 
-        self.a = self._a0
-        self.b = self._b0
+        self.a = np.array([self._a0])
+        self.b = np.array([self._b0])
 
         self.t = 0
-        self.h_data = HistoricalDataset(intercept=True)
 
     def action(self):
         """Samples beta's from posterior, and chooses best action accordingly.
@@ -118,13 +110,24 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
 
         # Some terms are removed as we assume prior mu_0 = 0.
         self.precision = s + self.lambda_prior * np.eye(self.hparams.actions_dim + 1)
-        self.cov = np.linalg.inv(self.precision)
         self.mu = np.dot(self.cov, np.dot(x.T, y))
 
         # Inverse Gamma posterior update
-        self.a = self.a0 + x.shape[0] / 2.0
+        self.a = np.array([self.a0 + x.shape[0] / 2.0])
         b_upd = 0.5 * (np.dot(y.T, y) - np.dot(self.mu.T, np.dot(self.precision, self.mu)))
-        self.b = self.b0 + b_upd
+        self.b = np.array([self.b0 + b_upd])
+
+    def trainable_parameters(self):
+        return {
+            'mu': self.mu,
+            'precision': self.precision,
+            'a': self.a,
+            'b': self.b
+        }
+
+    def reset_trainable_parameters(self, params):
+        for k, v in params.items():
+            setattr(self, k, v)
 
     @property
     def a0(self):
@@ -137,3 +140,16 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
     @property
     def lambda_prior(self):
         return self._lambda_prior
+
+    @property
+    def precision(self):
+        return self._precision
+
+    @precision.setter
+    def precision(self, value):
+        self._precision = value
+        self._cov = np.linalg.inv(self.precision)
+
+    @property
+    def cov(self):
+        return self._cov

@@ -32,49 +32,11 @@ def create_parser():
     return parser
 
 
-def run_configuration(algorithm, hparams, data):
-    if FLAGS.verbose:
-        print('Running configuration:')
-        for param_key, param_value in hparams.values().items():
-            print('\t', param_key, '=', param_value)
-        print()
-
-    data.positive_reward = hparams.positive_reward
-    data.negative_reward = hparams.negative_reward
-
-    sampling = algorithm(hparams, data)
-    for step in range(hparams.num_steps):
-        if FLAGS.verbose and (step + 1) % FLAGS.checkpoint_freq == 0:
-            print('>> Step:', step + 1)
-            hparams.show_training = True
-        else:
-            hparams.show_training = False
-
-        if step >= hparams.positive_start:
-            action_i, action, pred_r, opt_r = sampling.action()
-        else:
-            action_i = step
-            action = sampling.data.actions[step]
-            pred_r = opt_r = sampling.data.rewards[step]
-        sampling.update(action_i, action, pred_r, opt_r)
-
-        if FLAGS.verbose and (step + 1) % FLAGS.checkpoint_freq == 0:
-            print('Action:', action_i, ';\tPred reward:', pred_r, ';\tOpt reward:', opt_r)
-            print('Actions left: {};\tPositives sampled: {};\tPositives left: {}'.format(
-                sampling.data.num_actions,
-                len(np.where(sampling.h_data.opt_rewards == sampling.data.positive_reward)[0]),
-                len(sampling.data.positive_actions)
-            ))
-            print()
-
-    return sampling.h_data
-
-
 def main(_):
     # Load command input options
     options, remainder = create_parser().parse_args()
 
-    num_users_to_run = 10
+    num_users_to_run = 5
     log_path = LOG_PATH + datetime.datetime.now().strftime('%y%m%d%H%M%S%f')
 
     algos = []
@@ -91,7 +53,8 @@ def main(_):
         'b0': 6,
         'lambda_prior': 0.1,
         'pca': [True],
-        'remove_actions': True,
+        'remove_actions': False,
+        'intercept': True,
     }
     algos.append((LinearFullPosteriorSampling, hparams_linear_grid))
 
@@ -147,7 +110,7 @@ def main(_):
         'pca': [True],
         'remove_actions': True,
     }
-    algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_grid))
+    # algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_grid))
 
     raw_data = pd.read_pickle(options.input)
     raw_data = preprocess(raw_data)
@@ -195,7 +158,8 @@ def main(_):
 
                 hparams.set_hparam('actions_dim', run_data.actions_dim)
 
-                h_data = run_configuration(algo, hparams, run_data)
+                sampling = algo(hparams, run_data)
+                h_data = sampling.run()
                 Summary(hparams, h_data).save(log_path)
 
         if FLAGS.verbose:

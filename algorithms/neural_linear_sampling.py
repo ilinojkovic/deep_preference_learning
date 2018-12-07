@@ -19,7 +19,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from copy import deepcopy
 import numpy as np
 from scipy.stats import invgamma
 
@@ -37,9 +36,8 @@ class NeuralLinearPosteriorSampling(BanditAlgorithm):
           hparams: Hyper-parameters of the algorithm.
           data: BanditDataset object containing all the actions and rewards
         """
-        self.hparams = hparams
+        super().__init__(hparams, data)
         self.latent_dim = self.hparams.layer_sizes[-1]
-        self.data = deepcopy(data)
 
         # Gaussian prior for each beta_i
         self._lambda_prior = self.hparams.lambda_prior
@@ -64,7 +62,6 @@ class NeuralLinearPosteriorSampling(BanditAlgorithm):
         self.t = 0
 
         self.num_epochs = hparams.training_epochs
-        self.h_data = HistoricalDataset()
         self.h_latent = HistoricalDataset()
         self.bnn = NeuralBanditModel(optimizer='RMS', hparams=self.hparams, name=self.hparams.name)
 
