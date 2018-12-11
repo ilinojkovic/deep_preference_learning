@@ -118,16 +118,20 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
         self.b = np.array([self.b0 + b_upd])
 
     def trainable_parameters(self):
+        """Return parameters as a dictionary:
+            key: parameter name
+            value: (numpy array, entry lower bound, entry upper bound)
+        """
         return {
-            'mu': self.mu,
-            'precision': self.precision,
-            'a': self.a,
-            'b': self.b
+            'mu': (self.mu, -15, 15),
+            'precision': (self.precision, -15, 15),
+            'a': (self.a, 0, 15),
+            'b': (self.b, 0, 15)
         }
 
     def reset_trainable_parameters(self, params):
         for k, v in params.items():
-            setattr(self, k, v)
+            setattr(self, k, v[0])
 
     @property
     def a0(self):

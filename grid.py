@@ -18,7 +18,7 @@ from evaluation.summary import Summary
 FLAGS = flags.FLAGS
 FLAGS.set_default('alsologtostderr', True)
 flags.DEFINE_string('logdir', '../logs/tf/', 'Base directory to save output')
-flags.DEFINE_bool('verbose', True, 'Print runtime progress statements')
+flags.DEFINE_bool('sampling_verbose', True, 'Print runtime progress statements')
 flags.DEFINE_integer('checkpoint_freq', 100, 'Print checkpoint steps.')
 LOG_PATH = '../logs/my/'
 
@@ -36,7 +36,7 @@ def main(_):
     # Load command input options
     options, remainder = create_parser().parse_args()
 
-    num_users_to_run = 5
+    num_users_to_run = 20
     log_path = LOG_PATH + datetime.datetime.now().strftime('%y%m%d%H%M%S%f')
 
     algos = []
@@ -52,7 +52,7 @@ def main(_):
         'a0': 6,
         'b0': 6,
         'lambda_prior': 0.1,
-        'pca': [True],
+        'pca': [1 - 1e-7, 20],
         'remove_actions': False,
         'intercept': True,
     }
@@ -107,7 +107,7 @@ def main(_):
         'a0': 6,
         'b0': 6,
         'lambda_prior': 0.1,
-        'pca': [True],
+        'pca': [30, 20],
         'remove_actions': True,
     }
     # algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_grid))
@@ -140,27 +140,27 @@ def main(_):
 
         data = BanditDataset(actions, rewards)
 
-        pca = PCA(1 - 1e-7, whiten=True)
-        pca_actions = pca.fit_transform(data.actions)
-
-        pca_data = BanditDataset(pca_actions, rewards)
-
         if FLAGS.verbose:
             print('==> User {} generated <=='.format(str(i).zfill(2)))
             print('Actions shape:', data.actions.shape)
-            print('PCA actions shape:', pca_data.actions.shape)
             print('Positive examples:', len(data.positive_actions))
             print()
 
         for algo, hparams_grid in algos:
             for hparams in grid_hparams(hparams_grid):
-                run_data = pca_data if hparams.pca else data
+                if hparams.pca:
+                    pca = PCA(hparams.pca, whiten=True)
+                    pca_actions = pca.fit_transform(data.actions)
+
+                    run_data = BanditDataset(pca_actions, rewards)
+                else:
+                    run_data = data
 
                 hparams.set_hparam('actions_dim', run_data.actions_dim)
 
                 sampling = algo(hparams, run_data)
-                h_data = sampling.run()
-                Summary(hparams, h_data).save(log_path)
+                summary = sampling.run()
+                summary.save(log_path)
 
         if FLAGS.verbose:
             print('\n================================\n\n')

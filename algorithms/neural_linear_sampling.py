@@ -141,6 +141,12 @@ class NeuralLinearPosteriorSampling(BanditAlgorithm):
             b_upd -= 0.5 * np.dot(self.mu.T, np.dot(self.precision, self.mu))
             self.b = self.b0 + b_upd
 
+    def trainable_parameters(self):
+        pass
+
+    def reset_trainable_parameters(self, params):
+        pass
+
     @property
     def a0(self):
         return self._a0
