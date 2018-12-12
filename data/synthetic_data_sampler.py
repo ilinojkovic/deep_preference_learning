@@ -8,18 +8,17 @@ def get_latlng_indices(columns):
     return [np.where(columns == 'lat')[0][0], np.where(columns == 'lng')[0][0]]
 
 
-def filter_categorical(data, reference_index, column_indices):
+def filter_categorical(data, reference_index, column_indices, fraction=None):
     features = data[:, column_indices]
     return np.where(np.all(features == features[reference_index], axis=1))[0]
 
 
-def filter_numerical(data, reference_index, column_indices, fraction_of_std=1):
+def filter_numerical(data, reference_index, column_indices, fraction_of_std=1.):
     features = data[:, column_indices]
-    masked_features = np.ma.array(features, mask=(features == 0))
-    std = np.std(masked_features, axis=0).data
-    filtered = np.where(np.all(np.abs(features - features[reference_index]) < fraction_of_std * std, axis=1))[0]
-    missing_data = np.where(np.all(features == 0, axis=1))[0]
-    return np.concatenate((filtered, missing_data))
+    # masked_features = np.ma.array(features, mask=(features == 0))
+    # std = np.std(masked_features, axis=0).data
+    std = np.std(features, axis=0)
+    return np.where(np.all(np.abs(features - features[reference_index]) <= fraction_of_std * std, axis=1))[0]
 
 
 def filter_by_features(data, reference_index, features_indices, fraction=0.5, verbose=False):
@@ -47,54 +46,34 @@ def synthetic_user_rewards(data,
                            area_param=0.1,
                            feature_param=0.5,
                            verbose=False):
-    num_filters = 0
+
+    filters = []
+    if type_filter:
+        filters.append((filter_categorical, get_indices_list(data.columns, 'type'), None))
+    if geo_param:
+        filters.append((filter_numerical, get_indices_list(data.columns, 'geo'), geo_param))
+    if category_filter:
+        filters.append((filter_categorical, get_indices_list(data.columns, 'category'), None))
+    if price_param:
+        filters.append((filter_numerical, get_indices_list(data.columns, 'price'), price_param))
+    if area_param:
+        filters.append((filter_numerical, get_indices_list(data.columns, 'area'), area_param))
+    if feature_param:
+        filters.append((filter_by_features, get_indices_list(data.columns, 'feature'), feature_param))
+
     rewards = np.zeros(len(data))
 
-    if type_filter:
-        num_filters += 1
-        filtered = filter_categorical(data.values, reference_index, get_indices_list(data.columns, 'type'))
-        rewards[filtered] += 1
+    for i, f in enumerate(filters):
+        method, indices, param = f
+        prev_filtered = np.where(rewards == i)[0]
+        new_reference = np.where(prev_filtered == reference_index)[0][0]
+        curr_filtered = method(data.values[prev_filtered], new_reference, indices, param)
+        rewards[prev_filtered[curr_filtered]] += 1
         if verbose:
-            print('Type:', len(filtered))
+            print(i, ':', len(curr_filtered))
 
-    if geo_param:
-        num_filters += 1
-        filtered = filter_numerical(data.values, reference_index, get_indices_list(data.columns, 'geo'), geo_param)
-        rewards[filtered] += 1
-        if verbose:
-            print('Geo:', len(filtered))
-
-    if category_filter:
-        num_filters += 1
-        filtered = filter_categorical(data.values, reference_index, get_indices_list(data.columns, 'category'))
-        rewards[filtered] += 1
-        if verbose:
-            print('Category:', len(filtered))
-
-    if price_param:
-        num_filters += 1
-        filtered = filter_numerical(data.values, reference_index, get_indices_list(data.columns, 'price'), price_param)
-        rewards[filtered] += 1
-        if verbose:
-            print('Price:', len(filtered))
-
-    if area_param:
-        num_filters += 1
-        filtered = filter_numerical(data.values, reference_index, get_indices_list(data.columns, 'area'), area_param)
-        rewards[filtered] += 1
-        if verbose:
-            print('Area:', len(filtered))
-
-    if feature_param:
-        num_filters += 1
-        filtered = filter_by_features(data.values, reference_index, get_indices_list(data.columns, 'feature'),
-                                      feature_param)
-        rewards[filtered] += 1
-        if verbose:
-            print('Feature:', len(filtered))
-
-    rewards[rewards != num_filters] = 0
-    rewards[rewards == num_filters] = 1
+    rewards[rewards != len(filters)] = 0
+    rewards[rewards == len(filters)] = 1
 
     return rewards
 
@@ -130,11 +109,12 @@ def retrieve_synthetic_data(data=None,
                                                   feature_param=fst_feature_param,
                                                   verbose=verbose)
         selected = data.iloc[np.where(selected_rewards > 0)[0]]
+        reference_index = np.sum(selected_rewards[:reference_index]).astype(np.int)
 
         if len(selected) >= max_selected:
             continue
 
-        rewards = synthetic_user_rewards(data,
+        rewards = synthetic_user_rewards(selected,
                                          reference_index,
                                          type_filter=snd_type_filter,
                                          geo_param=snd_geo_param,
@@ -144,7 +124,7 @@ def retrieve_synthetic_data(data=None,
                                          feature_param=snd_feature_param,
                                          verbose=verbose)
         positive = np.count_nonzero(rewards)
-        if min_positive <= len(positive) <= max_positive:
+        if min_positive <= positive <= max_positive:
             break
 
-    return selected, rewards
+    return selected.values, rewards

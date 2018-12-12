@@ -11,7 +11,7 @@ from algorithms.neural_linear_sampling import NeuralLinearPosteriorSampling
 from algorithms.reward_distribution_sampling import RewardDistributionSampling
 from core.bandit_dataset import BanditDataset
 from data.synthetic_data_sampler import retrieve_synthetic_data
-from data.preprocessing import preprocess, remove_outlier_vals
+from data.preprocessing import preprocess, normalize
 from evaluation.grid_search import grid_hparams
 from evaluation.summary import Summary
 
@@ -36,7 +36,7 @@ def main(_):
     # Load command input options
     options, remainder = create_parser().parse_args()
 
-    num_users_to_run = 20
+    num_users_to_run = 10
     log_path = LOG_PATH + datetime.datetime.now().strftime('%y%m%d%H%M%S%f')
 
     algos = []
@@ -52,7 +52,7 @@ def main(_):
         'a0': 6,
         'b0': 6,
         'lambda_prior': 0.1,
-        'pca': [1 - 1e-7, 20],
+        'pca': [10],
         'remove_actions': False,
         'intercept': True,
     }
@@ -107,40 +107,37 @@ def main(_):
         'a0': 6,
         'b0': 6,
         'lambda_prior': 0.1,
-        'pca': [30, 20],
-        'remove_actions': True,
+        'pca': [10],
+        'remove_actions': False,
     }
-    # algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_grid))
+    algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_grid))
 
     raw_data = pd.read_pickle(options.input)
     raw_data = preprocess(raw_data)
-    raw_data = remove_outlier_vals(raw_data)
 
     for i in range(num_users_to_run):
         actions, rewards = retrieve_synthetic_data(data=raw_data,
-                                                   input_path=None,
                                                    fst_type_filter=True,
-                                                   fst_latlng_param=0.5,
-                                                   fst_utility_filter=None,
-                                                   fst_feature_param=None,
+                                                   fst_geo_param=0.7,
                                                    fst_category_filter=None,
                                                    fst_price_param=None,
                                                    fst_area_param=None,
+                                                   fst_feature_param=None,
                                                    snd_type_filter=True,
-                                                   snd_latlng_param=1,
-                                                   snd_utility_filter=True,
-                                                   snd_feature_param=0.5,
+                                                   snd_geo_param=1,
                                                    snd_category_filter=True,
-                                                   snd_price_param=0.6,
-                                                   snd_area_param=0.7,
+                                                   snd_price_param=0.08,
+                                                   snd_area_param=0.1,
+                                                   snd_feature_param=0.5,
                                                    max_selected=6000,
-                                                   min_positive=10,
+                                                   min_positive=20,
                                                    max_positive=1000,
                                                    verbose=False)
 
-        data = BanditDataset(actions, rewards)
+        normalized_actions = normalize(actions)
+        data = BanditDataset(normalized_actions, rewards)
 
-        if FLAGS.verbose:
+        if FLAGS.sampling_verbose:
             print('==> User {} generated <=='.format(str(i).zfill(2)))
             print('Actions shape:', data.actions.shape)
             print('Positive examples:', len(data.positive_actions))
@@ -162,7 +159,7 @@ def main(_):
                 summary = sampling.run()
                 summary.save(log_path)
 
-        if FLAGS.verbose:
+        if FLAGS.sampling_verbose:
             print('\n================================\n\n')
 
     return 0

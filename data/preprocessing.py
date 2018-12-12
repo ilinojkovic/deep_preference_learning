@@ -15,7 +15,7 @@ def to_numeric(df, errors='coerce'):
 
 
 def filter_columns(df):
-    col_reg = ['attach', 'price', 'category', 'feature', 'value', 'lat', 'lng', 'type']
+    col_reg = ['price', 'category', 'feature', 'value', 'lat', 'lng', 'type']
     cols = [c for c in df.columns if any([reg in c.lower() for reg in col_reg])]
     cols.remove('zoneTypes')
     return df[cols]
@@ -106,6 +106,15 @@ def prune_sparse(df, min_non_zero=10):
     return ndata
 
 
+def normalize(data):
+    std = np.std(data, axis=0)
+    to_remove = np.where(std == 0)[0]
+    n_data = np.delete(data, to_remove, axis=1)
+    std = np.delete(std, to_remove)
+
+    return (n_data - np.mean(n_data, axis=0)) / std
+
+
 def preprocess(df, errors='coerce'):
     df = to_numeric(df, errors=errors)
     df = filter_columns(df)
@@ -115,6 +124,9 @@ def preprocess(df, errors='coerce'):
     df = average_out_columns(df, 'area')
     df = prune_sparse(df)
     df = df.rename(index=str, columns={'lat': 'geo_lat', 'lng': 'geo_lng'})
+    df = df.drop(df[(df['area'] == 0) | (df['price'] == 0)].index)
+
+    df = pd.DataFrame(data=df.values, index=np.arange(len(df)), columns=df.columns)
     df = df.reindex(sorted(df.columns), axis=1)
 
     return df
