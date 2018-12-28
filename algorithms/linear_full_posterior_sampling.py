@@ -110,6 +110,14 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
 
         # Some terms are removed as we assume prior mu_0 = 0.
         self.precision = s + self.lambda_prior * np.eye(self.hparams.actions_dim + 1)
+        diagonalize = getattr(self.hparams, 'diagonalize', False)
+        if diagonalize:
+            if diagonalize == 'precision':
+                self.precision = np.diag(np.diag(self.precision))
+            elif diagonalize == 'covariance':
+                self.cov = np.diag(np.diag(self.cov))
+            else:
+                raise ValueError('Wrong diagonalization parameter. Only \'precision\' and \'covariance\' supported.')
         self.mu = np.dot(self.cov, np.dot(x.T, y))
 
         # Inverse Gamma posterior update
@@ -157,3 +165,8 @@ class LinearFullPosteriorSampling(BanditAlgorithm):
     @property
     def cov(self):
         return self._cov
+
+    @cov.setter
+    def cov(self, value):
+        self._cov = value
+        self._precision = np.linalg.inv(self.cov)

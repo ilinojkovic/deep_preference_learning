@@ -5,7 +5,6 @@ from optparse import OptionParser
 import os
 import pandas as pd
 import pickle
-from sklearn.decomposition import PCA
 import tensorflow as tf
 import time
 
@@ -13,7 +12,7 @@ from algorithms.genetic_algorithm import GeneticAlgorithm
 from algorithms.linear_full_posterior_sampling import LinearFullPosteriorSampling
 from core.bandit_dataset import BanditDataset
 from data.synthetic_data_sampler import retrieve_synthetic_data
-from data.preprocessing import preprocess, remove_outlier_vals
+from data.preprocessing import preprocess, remove_outlier_vals, normalize
 
 FLAGS = flags.FLAGS
 FLAGS.set_default('alsologtostderr', True)
@@ -37,18 +36,18 @@ def main(_):
     # Load command input options
     options, remainder = create_parser().parse_args()
 
-    num_meta_datasets = 5
-    num_generations = 2
-    population_size = 100
+    num_meta_datasets = 20
+    num_generations = 5
+    population_size = 30
     num_children = 5
-    best_sample = 25
-    lucky_few = 15
+    best_sample = 8
+    lucky_few = 4
     chance_of_mutation = 5
     fraction_to_mutate = 5
 
     hparams_linear = tf.contrib.training.HParams(name='LinearFullPosterior',
                                                  num_steps=20,
-                                                 actions_dim=20,
+                                                 actions_dim=98,
                                                  positive_reward=10,
                                                  negative_reward=-1,
                                                  a0=6.0,
@@ -83,9 +82,9 @@ def main(_):
                                                    min_positive=10,
                                                    max_positive=1000,
                                                    verbose=False)
-        pca = PCA(hparams_linear.actions_dim, whiten=True)
-        pca_actions = pca.fit_transform(actions)
-        data = BanditDataset(pca_actions, rewards)
+
+        normalized_actions = normalize(actions)
+        data = BanditDataset(normalized_actions, rewards)
         meta_data.append(data)
 
     start_time = time.time()

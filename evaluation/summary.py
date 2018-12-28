@@ -79,5 +79,7 @@ class Summary(object):
             loaded = Summary.load(path)
             if not isinstance(loaded, list):
                 loaded = [[loaded]]
+            elif not isinstance(loaded[0], list):
+                loaded = [loaded]
             summaries.extend(loaded)
         return summaries

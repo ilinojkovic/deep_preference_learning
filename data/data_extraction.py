@@ -6,6 +6,13 @@ from optparse import OptionParser
 
 
 class XML2DataFrame:
+    """
+    Class for processing XML property file to a DataFrame object.
+    Not super nice code, heavily customized for our xml format.
+    Slow because of querying the geo location for each address,
+    but run once and pickled for further usage.
+    """
+
     def __init__(self, xml_path):
         xml = ET.parse(xml_path)
         self.root = xml.getroot()[0]
@@ -45,7 +52,6 @@ class XML2DataFrame:
                                                                                                                        key),
                                                                                                                    element.tag,
                                                                                                                    parsed))
-
         """ Apply recursion """
         for child in list(element):
             # Parse address
@@ -58,21 +64,21 @@ class XML2DataFrame:
                         address.append(info_element.text)
                 address_str = ' '.join(address)
                 parsed['address'] = address_str
-                # geo_address = geocoder.arcgis(address_str)
-                # if geo_address:
-                #     parsed['lat'] = geo_address.latlng[0]
-                #     parsed['lng'] = geo_address.latlng[1]
-                # else:
-                #     # Try again after sleep
-                #     time.sleep(5)
-                #     geo_address = geocoder.arcgis(address_str)
-                #     if geo_address:
-                #         parsed['lat'] = geo_address.latlng[0]
-                #         parsed['lng'] = geo_address.latlng[1]
-                #     else:
-                #         self.counter += 1
-                #         print('Address not found:', self.index, self.counter, len(child), child.tag, address,
-                #               address_str)
+                geo_address = geocoder.arcgis(address_str)
+                if geo_address:
+                    parsed['lat'] = geo_address.latlng[0]
+                    parsed['lng'] = geo_address.latlng[1]
+                else:
+                    # Try again after sleep
+                    time.sleep(5)
+                    geo_address = geocoder.arcgis(address_str)
+                    if geo_address:
+                        parsed['lat'] = geo_address.latlng[0]
+                        parsed['lng'] = geo_address.latlng[1]
+                    else:
+                        self.counter += 1
+                        print('Address not found:', self.index, self.counter, len(child), child.tag, address,
+                              address_str)
             elif len(child) == 0:
                 if child.tag == 'type':
                     if child.text != 'buy' and child.text != 'rent':

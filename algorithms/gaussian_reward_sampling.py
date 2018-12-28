@@ -1,13 +1,14 @@
 import numpy as np
 
 from core.bandit_algorithm import BanditAlgorithm
-from algorithms.neural_bandit_model import NeuralBanditModel
+from algorithms.gaussian_bandit_model import GaussianBanditModel
 
 
-class RewardDistributionSampling(BanditAlgorithm):
+class GaussianRewardSampling(BanditAlgorithm):
     """
-    Preference learning model which tries to estimate the reward
-    directly using an end-to-end neural network.
+    Models the uncertainty of predicted reward by treating it as
+    a random variable: r ~ N(mu, var)
+    Parameters mu and var are estimated by a neural network.
     """
 
     def __init__(self, hparams, data):
@@ -19,7 +20,7 @@ class RewardDistributionSampling(BanditAlgorithm):
 
         self.num_epochs = hparams.training_epochs
 
-        self.bnn = NeuralBanditModel(optimizer='RMS', hparams=self.hparams, name=self.hparams.name)
+        self.bnn = GaussianBanditModel(optimizer='RMS', hparams=self.hparams, name=self.hparams.name)
 
     def action(self):
 
@@ -29,14 +30,11 @@ class RewardDistributionSampling(BanditAlgorithm):
 
         with self.bnn.graph.as_default():
             # Retrieve distribution over actions
-            action_distribution, pred_rs = self.bnn.sess.run([self.bnn.distribution, self.bnn.y_pred],
-                                                             feed_dict={self.bnn.x: self.data.actions})
-            action_distribution = action_distribution.reshape((-1,))
-            pred_rs = pred_rs.reshape((-1,))
+            pred_rs = self.bnn.sess.run(self.bnn.y_pred, feed_dict={self.bnn.x: self.data.actions})
 
             # Pick action randomly according to distribution
-            action_i = np.random.choice(self.data.num_actions, p=action_distribution)
-            return action_i, self.data.actions[action_i], pred_rs[action_i], self.data.rewards[action_i]
+            action_i = np.argmax(pred_rs)
+            return action_i, self.data.actions[action_i], pred_rs[action_i, 0], self.data.rewards[action_i]
 
     def update(self, action_i, action, pred_r, opt_r):
         self.t += 1

@@ -133,6 +133,16 @@ class NeuralLinearPosteriorSampling(BanditAlgorithm):
             # Some terms are removed as we assume prior mu_0 = 0.
             self.precision = s + self.lambda_prior * np.eye(self.latent_dim)
             self.cov = np.linalg.inv(self.precision)
+            diagonalize = getattr(self.hparams, 'diagonalize', False)
+            if diagonalize:
+                if diagonalize == 'precision':
+                    self.precision = np.diag(np.diag(self.precision))
+                    self.cov = np.linalg.inv(self.precision)
+                elif diagonalize == 'covariance':
+                    self.cov = np.diag(np.diag(self.cov))
+                    self.precision = np.linalg.inv(self.cov)
+                else:
+                    raise ValueError('Wrong diagonalization parameter. Only \'precision\' and \'covariance\' supported.')
             self.mu = np.dot(self.cov, np.dot(z.T, y))
 
             # Inverse Gamma posterior update

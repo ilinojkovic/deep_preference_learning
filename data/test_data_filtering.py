@@ -4,7 +4,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from data.synthetic_data_sampler import retrieve_synthetic_data
-from data.preprocessing import preprocess
+from data.preprocessing import preprocess, remove_outlier_vals
 
 
 def create_parser():
@@ -21,6 +21,7 @@ def main():
     options, remainder = create_parser().parse_args()
 
     data = preprocess(pd.read_pickle(options.input))
+    data = remove_outlier_vals(data)
 
     sample_synthetic_sizes = []
     selected_sample_sizes = []
@@ -29,18 +30,21 @@ def main():
             print(i + 1)
 
         _, rewards = retrieve_synthetic_data(data=data,
+                                             input_path=None,
                                              fst_type_filter=True,
-                                             fst_geo_param=0.6,
+                                             fst_latlng_param=0.5,
+                                             fst_utility_filter=None,
+                                             fst_feature_param=None,
                                              fst_category_filter=None,
                                              fst_price_param=None,
                                              fst_area_param=None,
-                                             fst_feature_param=None,
                                              snd_type_filter=True,
-                                             snd_geo_param=1,
+                                             snd_latlng_param=1,
+                                             snd_utility_filter=True,
+                                             snd_feature_param=0.5,
                                              snd_category_filter=True,
-                                             snd_price_param=0.7,
-                                             snd_area_param=0.5,
-                                             snd_feature_param=None,
+                                             snd_price_param=0.6,
+                                             snd_area_param=0.7,
                                              max_selected=6000,
                                              min_positive=10,
                                              max_positive=1000,

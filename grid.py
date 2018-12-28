@@ -9,9 +9,10 @@ from sklearn.decomposition import PCA
 from algorithms.linear_full_posterior_sampling import LinearFullPosteriorSampling
 from algorithms.neural_linear_sampling import NeuralLinearPosteriorSampling
 from algorithms.reward_distribution_sampling import RewardDistributionSampling
+from algorithms.gaussian_reward_sampling import GaussianRewardSampling
 from core.bandit_dataset import BanditDataset
 from data.synthetic_data_sampler import retrieve_synthetic_data
-from data.preprocessing import preprocess, normalize
+from data.preprocessing import preprocess, normalize, remove_outlier_vals
 from evaluation.grid_search import grid_hparams
 from evaluation.summary import Summary
 
@@ -36,7 +37,9 @@ def main(_):
     # Load command input options
     options, remainder = create_parser().parse_args()
 
-    num_users_to_run = 10
+    num_users_to_run = 50
+    positive_start = 0
+    remove_actions = False
     log_path = LOG_PATH + datetime.datetime.now().strftime('%y%m%d%H%M%S%f')
 
     algos = []
@@ -46,17 +49,54 @@ def main(_):
         'num_steps': 500,
         'actions_dim': 98,
         'init_scale': 0.3,
-        'positive_reward': 10,
+        'positive_reward': 100,
         'negative_reward': -1,
-        'positive_start': 0,
+        'positive_start': positive_start,
         'a0': 6,
         'b0': 6,
         'lambda_prior': 0.1,
-        'pca': [10],
-        'remove_actions': False,
+        'pca': False,
+        'remove_actions': remove_actions,
         'intercept': True,
+        'diagonalize': False,
     }
     algos.append((LinearFullPosteriorSampling, hparams_linear_grid))
+
+    hparams_linear_prec_grid = {
+        'name': 'LinearPrecisionDiag',
+        'num_steps': 500,
+        'actions_dim': 98,
+        'init_scale': 0.3,
+        'positive_reward': 100,
+        'negative_reward': -1,
+        'positive_start': positive_start,
+        'a0': 6,
+        'b0': 6,
+        'lambda_prior': 0.1,
+        'pca': False,
+        'remove_actions': remove_actions,
+        'intercept': True,
+        'diagonalize': 'precision',
+    }
+    algos.append((LinearFullPosteriorSampling, hparams_linear_prec_grid))
+
+    hparams_linear_cov_grid = {
+        'name': 'LinearCovarianceDiag',
+        'num_steps': 500,
+        'actions_dim': 98,
+        'init_scale': 0.3,
+        'positive_reward': 100,
+        'negative_reward': -1,
+        'positive_start': positive_start,
+        'a0': 6,
+        'b0': 6,
+        'lambda_prior': 0.1,
+        'pca': False,
+        'remove_actions': remove_actions,
+        'intercept': True,
+        'diagonalize': 'covariance',
+    }
+    algos.append((LinearFullPosteriorSampling, hparams_linear_cov_grid))
 
     hparams_reward_dist_grid = {
         'name': 'RewardDistribution',
@@ -70,72 +110,162 @@ def main(_):
         'activate_decay': True,
         'initial_lr': 0.1,
         'max_grad_norm': 5.0,
-        'training_freq_network': [1, 10],
+        'training_freq_network': 10,
         'training_epochs': 40,
         'show_training': True,
         'freq_summary': 20,
         'lr_decay_rate': 0.99,
-        'positive_reward': 10,
+        'positive_reward': 100,
         'negative_reward': -1,
-        'positive_start': 0,
-        'pca': [True, False],
-        'remove_actions': True,
+        'positive_start': positive_start,
+        'pca': False,
+        'remove_actions': remove_actions,
     }
-    # algos.append((RewardDistributionSampling, hparams_reward_dist_grid))
+    algos.append((RewardDistributionSampling, hparams_reward_dist_grid))
 
-    hparams_neural_lin_grid = {
-        'name': 'NeuralLinear',
+    hparams_gaussian_reward_grid = {
+        'name': 'GaussianReward',
         'num_steps': 500,
         'actions_dim': 98,
         'init_scale': 0.3,
         'activation': 'relu',
-        'layer_sizes': [[50, 50]],
+        'layer_sizes': [[100, 100]],
+        'batch_size': 32,
+        'reset_lr': True,
+        'activate_decay': True,
+        'initial_lr': 0.1,
+        'max_grad_norm': 5.0,
+        'training_freq_network': [10],
+        'training_epochs': 80,
+        'show_training': True,
+        'freq_summary': 20,
+        'lr_decay_rate': 0.999,
+        'positive_reward': 100,
+        'negative_reward': -1,
+        'positive_start': positive_start,
+        'pca': [False],
+        'remove_actions': remove_actions,
+    }
+    algos.append((GaussianRewardSampling, hparams_gaussian_reward_grid))
+
+    hparams_neural_lin_grid = {
+        'name': 'NeuralLinearFullPosterior',
+        'num_steps': 500,
+        'actions_dim': 98,
+        'init_scale': 0.3,
+        'activation': 'relu',
+        'layer_sizes': [[200, 200]],
         'batch_size': 32,
         'reset_lr': True,
         'activate_decay': True,
         'initial_lr': 0.1,
         'max_grad_norm': 5.0,
         'training_freq': 1,
-        'training_freq_network': [10],
+        'training_freq_network': 10,
         'training_epochs': 50,
         'show_training': True,
         'freq_summary': 25,
         'lr_decay_rate': 0.99,
-        'positive_reward': 10,
+        'positive_reward': 100,
         'negative_reward': -1,
-        'positive_start': 0,
+        'positive_start': positive_start,
         'a0': 6,
         'b0': 6,
         'lambda_prior': 0.1,
         'pca': [10],
-        'remove_actions': False,
+        'remove_actions': remove_actions,
+        'diagonalize': False,
     }
     algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_grid))
 
+    hparams_neural_lin_prec_grid = {
+        'name': 'NeuralLinearPrecisionDiag',
+        'num_steps': 500,
+        'actions_dim': 98,
+        'init_scale': 0.3,
+        'activation': 'relu',
+        'layer_sizes': [[200, 200]],
+        'batch_size': 32,
+        'reset_lr': True,
+        'activate_decay': True,
+        'initial_lr': 0.1,
+        'max_grad_norm': 5.0,
+        'training_freq': 1,
+        'training_freq_network': 10,
+        'training_epochs': 50,
+        'show_training': True,
+        'freq_summary': 25,
+        'lr_decay_rate': 0.99,
+        'positive_reward': 100,
+        'negative_reward': -1,
+        'positive_start': positive_start,
+        'a0': 6,
+        'b0': 6,
+        'lambda_prior': 0.1,
+        'pca': [10],
+        'remove_actions': remove_actions,
+        'diagonalize': 'precision',
+    }
+    algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_prec_grid))
+
+    hparams_neural_lin_cov_grid = {
+        'name': 'NeuralLinearCovarianceDiag',
+        'num_steps': 500,
+        'actions_dim': 98,
+        'init_scale': 0.3,
+        'activation': 'relu',
+        'layer_sizes': [[200, 200]],
+        'batch_size': 32,
+        'reset_lr': True,
+        'activate_decay': True,
+        'initial_lr': 0.1,
+        'max_grad_norm': 5.0,
+        'training_freq': 1,
+        'training_freq_network': 10,
+        'training_epochs': 50,
+        'show_training': True,
+        'freq_summary': 25,
+        'lr_decay_rate': 0.99,
+        'positive_reward': 100,
+        'negative_reward': -1,
+        'positive_start': positive_start,
+        'a0': 6,
+        'b0': 6,
+        'lambda_prior': 0.1,
+        'pca': [10],
+        'remove_actions': remove_actions,
+        'diagonalize': 'covariance',
+    }
+    algos.append((NeuralLinearPosteriorSampling, hparams_neural_lin_cov_grid))
+
     raw_data = pd.read_pickle(options.input)
     raw_data = preprocess(raw_data)
+    raw_data = remove_outlier_vals(raw_data)
 
     for i in range(num_users_to_run):
         actions, rewards = retrieve_synthetic_data(data=raw_data,
+                                                   input_path=None,
                                                    fst_type_filter=True,
-                                                   fst_geo_param=0.7,
+                                                   fst_latlng_param=0.5,
+                                                   fst_utility_filter=None,
+                                                   fst_feature_param=None,
                                                    fst_category_filter=None,
                                                    fst_price_param=None,
                                                    fst_area_param=None,
-                                                   fst_feature_param=None,
                                                    snd_type_filter=True,
-                                                   snd_geo_param=1,
-                                                   snd_category_filter=True,
-                                                   snd_price_param=0.08,
-                                                   snd_area_param=0.1,
+                                                   snd_latlng_param=1,
+                                                   snd_utility_filter=True,
                                                    snd_feature_param=0.5,
+                                                   snd_category_filter=True,
+                                                   snd_price_param=0.6,
+                                                   snd_area_param=0.7,
                                                    max_selected=6000,
-                                                   min_positive=20,
+                                                   min_positive=10,
                                                    max_positive=1000,
                                                    verbose=False)
 
         normalized_actions = normalize(actions)
-        data = BanditDataset(normalized_actions, rewards)
+        data = BanditDataset(normalized_actions, rewards, positive_start)
 
         if FLAGS.sampling_verbose:
             print('==> User {} generated <=='.format(str(i).zfill(2)))

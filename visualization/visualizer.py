@@ -48,7 +48,8 @@ class Visualizer(object):
             ax.legend(model_lines, model_names, loc='center left', bbox_to_anchor=(1, 0.5))
 
         if name is not None:
-            ax.set_title(name)
+            ax.set_ylabel(name)
+            ax.set_xlabel('Steps')
 
         if ax is None:
             plt.show(block=False)

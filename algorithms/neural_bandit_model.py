@@ -65,11 +65,12 @@ class NeuralBanditModel(object):
                     if num_units > 0:
                         nn = self.build_layer(nn, num_units)
 
-            y_pred = tf.layers.dense(
-                inputs=nn,
-                units=1,
-                activation=tf.nn.sigmoid,
-                kernel_initializer=tf.random_uniform_initializer(-init_s, init_s))
+            y_pred = tf.contrib.layers.fully_connected(
+                nn,
+                1,
+                activation_fn=tf.sigmoid,
+                weights_initializer=tf.random_uniform_initializer(-init_s, init_s)
+            )
 
             y_pred = self.hparams.positive_reward * y_pred
 
@@ -110,10 +111,7 @@ class NeuralBanditModel(object):
                 # with tf.variable_scope("prediction_{}".format(self.name)):
                 self.nn, self.y_pred = self.forward_pass()
                 self.distribution = self.y_pred / tf.reduce_sum(self.y_pred)
-                self.cost = tf.losses.absolute_difference(self.y_pred, self.y, reduction=tf.losses.Reduction.MEAN)
-
-                self.cum_cost = tf.Variable(0.0, dtype=tf.float32)
-                assign_op = tf.assign(self.cum_cost, self.cum_cost + self.cost)
+                self.cost = self.get_cost()
 
                 if self.hparams.activate_decay:
                     self.lr = tf.train.inverse_time_decay(
@@ -123,15 +121,16 @@ class NeuralBanditModel(object):
                     self.lr = tf.Variable(self.hparams.initial_lr, trainable=False)
 
                 tvars = tf.trainable_variables()
-                grads, _ = tf.clip_by_global_norm(
-                    tf.gradients(self.cost, tvars), self.hparams.max_grad_norm)
+                grads = tf.gradients(self.cost, tvars)
+                norm = tf.global_norm(grads)
+                norm = tf.where(tf.logical_or(tf.is_nan(norm), tf.is_inf(norm)), tf.zeros_like(norm), norm)
+
+                grads, _ = tf.clip_by_global_norm(grads, self.hparams.max_grad_norm, use_norm=norm)
 
                 self.optimizer = self.select_optimizer()
 
-                with tf.control_dependencies([assign_op]):
-                    self.mean_cost = self.cum_cost / tf.to_float(self.global_step)
-                    self.train_op = self.optimizer.apply_gradients(
-                        zip(grads, tvars), global_step=self.global_step)
+                self.train_op = self.optimizer.apply_gradients(
+                    zip(grads, tvars), global_step=self.global_step)
 
                 # create tensorboard metrics
                 self.create_summaries()
@@ -149,6 +148,9 @@ class NeuralBanditModel(object):
             if self.verbose:
                 print("Initializing model {}.".format(self.name))
             self.sess.run(self.init)
+
+    def get_cost(self):
+        return tf.losses.absolute_difference(self.y_pred, self.y, reduction=tf.losses.Reduction.MEAN)
 
     def assign_lr(self):
         """Reses the learning rate in dynamic schedules for subsequent trainings.
@@ -177,7 +179,6 @@ class NeuralBanditModel(object):
         with self.graph.as_default():
             with tf.name_scope(self.name + "_summaries"):
                 tf.summary.scalar("cost", self.cost)
-                tf.summary.scalar("mean_cost", self.mean_cost)
                 tf.summary.scalar("lr", self.lr)
                 tf.summary.scalar("global_step", self.global_step)
                 self.summary_op = tf.summary.merge_all()

@@ -8,7 +8,7 @@ FLAGS = flags.FLAGS
 
 
 class GeneticAlgorithm(object):
-    """Implements genetic meta-learning algorithm"""
+    """Implements Baldwinian genetic meta-learning algorithm"""
 
     def __init__(self,
                  sampling,
@@ -75,7 +75,7 @@ class GeneticAlgorithm(object):
             instance = self.sampling(self.hparams, data)
             instance.reset_trainable_parameters(params)
             summary = instance.run()
-            fitness += summary.precision[-1] * summary.recall[-1]
+            fitness += -summary.cost[-1]
             precision += summary.precision[-1]
             recall += summary.recall[-1]
 
