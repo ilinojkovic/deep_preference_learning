@@ -1,6 +1,7 @@
 # Deep Preference Learning for Advanced Home Search
 
-The code was produced for the seminar project at ETH Zurich.
+The code was produced for the semester project at ETH Zurich.
+The project report can be found [here](https://drive.google.com/file/d/1v2Z-co1GFsnAaBMgAB6PhM9Tu-K5qHV_/view?usp=sharing).
 
 We treat preference learning as a bandit problem, where our property
 advertisements are the actions. Four algorithms are provided, which
